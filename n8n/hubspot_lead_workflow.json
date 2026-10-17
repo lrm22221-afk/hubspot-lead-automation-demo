@@ -1,0 +1,521 @@
+{
+  "name": "HubSpot lead automation (demo)",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "Lead webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "2",
+      "name": "Validate, score & route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// n8n Code node \"Validate, score & route\" (Run Once for All Items).\n// --- bundled from src/core.ts (do not edit here) ---\nvar LeadCore = (() => {\n  var __defProp = Object.defineProperty;\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key2 of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key2) && key2 !== except)\n          __defProp(to, key2, { get: () => from[key2], enumerable: !(desc = __getOwnPropDesc(from, key2)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/core.ts\n  var core_exports = {};\n  __export(core_exports, {\n    ASSOC: () => ASSOC,\n    backoffMs: () => backoffMs,\n    contactProperties: () => contactProperties,\n    contactSearchBody: () => contactSearchBody,\n    dealBody: () => dealBody,\n    flatten: () => flatten,\n    isRetryable: () => isRetryable,\n    matches: () => matches,\n    normalizeEmail: () => normalizeEmail,\n    normalizePhone: () => normalizePhone,\n    parseBudget: () => parseBudget,\n    routeOwner: () => routeOwner,\n    scoreLead: () => scoreLead,\n    slackMessage: () => slackMessage,\n    taskBody: () => taskBody,\n    titleCase: () => titleCase,\n    validate: () => validate\n  });\n  var ALIASES = {\n    email: [\"email\", \"emailaddress\", \"e-mail\", \"mail\"],\n    firstName: [\"firstname\", \"first\", \"fname\", \"givenname\"],\n    lastName: [\"lastname\", \"last\", \"lname\", \"surname\", \"familyname\"],\n    phone: [\"phone\", \"phonenumber\", \"mobile\", \"tel\", \"telephone\", \"full\"],\n    company: [\"company\", \"companyname\", \"organization\", \"business\"],\n    jobTitle: [\"jobtitle\", \"title\", \"role\", \"position\"],\n    country: [\"country\", \"countrycode\"],\n    budget: [\"budget\", \"estimatedbudget\", \"projectbudget\"],\n    timeline: [\"timeline\", \"timeframe\", \"when\"],\n    message: [\"message\", \"comments\", \"details\", \"notes\", \"projectdetails\", \"howcanwehelp\", \"howcan\"],\n    source: [\"source\", \"utmsource\", \"leadsource\", \"howdidyouhear\"],\n    submissionId: [\"submissionid\", \"submission_id\", \"id\"]\n  };\n  var key = (k) => k.toLowerCase().replace(/^q\\d+_/, \"\").replace(/[^a-z0-9]/g, \"\");\n  function flatten(raw) {\n    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;\n    let src = raw;\n    if (typeof raw.rawRequest === \"string\") {\n      try {\n        src = { ...JSON.parse(raw.rawRequest), submissionID: raw.submissionID };\n      } catch {\n      }\n    }\n    const out = {};\n    for (const [k, v] of Object.entries(src)) {\n      if (v == null) continue;\n      if (typeof v === \"object\" && !Array.isArray(v)) {\n        const o = v;\n        if (\"first\" in o || \"last\" in o) {\n          (_b = out.firstname) != null ? _b : out.firstname = String((_a = o.first) != null ? _a : \"\");\n          (_d = out.lastname) != null ? _d : out.lastname = String((_c = o.last) != null ? _c : \"\");\n          continue;\n        }\n        if (\"area\" in o || \"phone\" in o || \"full\" in o) {\n          (_h = out.phone) != null ? _h : out.phone = String((_g = o.full) != null ? _g : `${(_e = o.area) != null ? _e : \"\"}${(_f = o.phone) != null ? _f : \"\"}`);\n          continue;\n        }\n        for (const [k2, v2] of Object.entries(o)) if (v2 != null && typeof v2 !== \"object\") (_j = out[_i = key(k2)]) != null ? _j : out[_i] = String(v2);\n        continue;\n      }\n      const kk = key(k);\n      if (kk === \"name\" || kk === \"fullname\") {\n        const parts = String(v).trim().split(/\\s+/);\n        (_l = out.firstname) != null ? _l : out.firstname = (_k = parts.shift()) != null ? _k : \"\";\n        (_m = out.lastname) != null ? _m : out.lastname = parts.join(\" \");\n        continue;\n      }\n      (_n = out[kk]) != null ? _n : out[kk] = Array.isArray(v) ? v.join(\", \") : String(v);\n    }\n    return out;\n  }\n  function pick(flat, field) {\n    for (const a of ALIASES[field]) {\n      const v = flat[key(a)];\n      if (v != null && String(v).trim() !== \"\") return String(v).trim();\n    }\n    return void 0;\n  }\n  function normalizeEmail(v) {\n    if (!v) return void 0;\n    const e = v.trim().toLowerCase();\n    return /^[^\\s@]+@[^\\s@]+\\.[a-z]{2,}$/.test(e) ? e : void 0;\n  }\n  function normalizePhone(v, defaultCallingCode = \"972\") {\n    if (!v) return void 0;\n    let s = v.trim().replace(/[\\s().-]/g, \"\");\n    if (s.startsWith(\"00\")) s = \"+\" + s.slice(2);\n    if (!s.startsWith(\"+\")) s = s.startsWith(\"0\") ? `+${defaultCallingCode}${s.slice(1)}` : `+${defaultCallingCode}${s}`;\n    return /^\\+[1-9]\\d{7,14}$/.test(s) ? s : void 0;\n  }\n  function titleCase(v) {\n    return v.trim().toLowerCase().replace(/(^|[\\s'-])(\\p{L})/gu, (_m, p, c) => p + c.toUpperCase());\n  }\n  var COUNTRY = { israel: \"IL\", \"united states\": \"US\", usa: \"US\", us: \"US\", \"united kingdom\": \"GB\", uk: \"GB\", germany: \"DE\", canada: \"CA\" };\n  var CALLING_CODE = { IL: \"972\", US: \"1\", CA: \"1\", GB: \"44\", DE: \"49\" };\n  function parseBudget(v) {\n    if (!v) return void 0;\n    const m = v.replace(/,/g, \"\").match(/(\\d+(?:\\.\\d+)?)\\s*(k)?/i);\n    if (!m) return void 0;\n    return Math.round(Number(m[1]) * (m[2] ? 1e3 : 1));\n  }\n  function validate(raw, rules, defaultCallingCode = \"972\") {\n    var _a, _b, _c, _d, _e;\n    const flat = flatten(raw);\n    const errors = [];\n    const rawEmail = pick(flat, \"email\");\n    const email = normalizeEmail(rawEmail);\n    if (!email) errors.push(rawEmail ? `invalid email: ${rawEmail}` : \"email is required\");\n    const countryRaw = pick(flat, \"country\");\n    const country = countryRaw ? (_a = COUNTRY[countryRaw.toLowerCase()]) != null ? _a : countryRaw.length === 2 ? countryRaw.toUpperCase() : void 0 : void 0;\n    const rawPhone = pick(flat, \"phone\");\n    const phone = normalizePhone(rawPhone, country && CALLING_CODE[country] || defaultCallingCode);\n    if (rawPhone && !phone) errors.push(`invalid phone: ${rawPhone}`);\n    const firstName = titleCase((_b = pick(flat, \"firstName\")) != null ? _b : \"\");\n    if (!firstName) errors.push(\"first name is required\");\n    if (errors.length) return { ok: false, errors };\n    const domain = email.split(\"@\")[1];\n    const clean = (s) => s ? s.replace(/\\s+/g, \" \").trim().slice(0, 2e3) : void 0;\n    const lead = {\n      email,\n      firstName,\n      lastName: titleCase((_c = pick(flat, \"lastName\")) != null ? _c : \"\"),\n      phone,\n      company: clean(pick(flat, \"company\")),\n      jobTitle: clean(pick(flat, \"jobTitle\")),\n      country,\n      budget: parseBudget(pick(flat, \"budget\")),\n      timeline: (_d = pick(flat, \"timeline\")) == null ? void 0 : _d.toLowerCase().replace(/\\s+/g, \"_\"),\n      message: clean(pick(flat, \"message\")),\n      source: (_e = pick(flat, \"source\")) == null ? void 0 : _e.toLowerCase(),\n      submissionId: pick(flat, \"submissionId\"),\n      businessEmail: !rules.freeEmailDomains.includes(domain)\n    };\n    return { ok: true, lead, errors: [] };\n  }\n  function matches(lead, c) {\n    const v = lead[c.field];\n    if (c.present !== void 0) return (v != null && v !== \"\") === c.present;\n    if (v == null) return false;\n    if (c.equals !== void 0 && v !== c.equals) return false;\n    if (c.gte !== void 0 && !(typeof v === \"number\" && v >= c.gte)) return false;\n    if (c.lt !== void 0 && !(typeof v === \"number\" && v < c.lt)) return false;\n    if (c.matches !== void 0 && !new RegExp(c.matches, \"i\").test(String(v))) return false;\n    if (c.minLength !== void 0 && String(v).length < c.minLength) return false;\n    return true;\n  }\n  function scoreLead(lead, rules) {\n    const hits = rules.scoring.filter((r) => matches(lead, r.when));\n    const score = Math.min(100, hits.reduce((s, r) => s + r.points, 0));\n    const t = [...rules.tiers].sort((a, b) => b.minScore - a.minScore).find((x) => score >= x.minScore);\n    return { score, tier: t.tier, reasons: hits.map((h) => `${h.id} +${h.points}`), taskDueHours: t.taskDueHours, taskPriority: t.taskPriority };\n  }\n  function routeOwner(lead, rules, counter) {\n    const r = rules.routing.find((x) => matches(lead, x.when));\n    if (r) return { ownerId: r.ownerId, ownerName: r.ownerName, rule: r.id };\n    const o = rules.roundRobin[counter % rules.roundRobin.length];\n    return { ...o, rule: \"round_robin\" };\n  }\n  function contactSearchBody(lead) {\n    const filterGroups = [{ filters: [{ propertyName: \"email\", operator: \"EQ\", value: lead.email }] }];\n    if (lead.phone) filterGroups.push({ filters: [{ propertyName: \"phone\", operator: \"EQ\", value: lead.phone }] });\n    return { filterGroups, properties: [\"email\", \"phone\", \"firstname\", \"lastname\", \"hubspot_owner_id\"], limit: 2 };\n  }\n  function contactProperties(lead, score, owner, scoreProperty, existingOwnerId) {\n    const p = { email: lead.email, firstname: lead.firstName, lifecyclestage: \"lead\", hs_lead_status: \"NEW\" };\n    if (lead.lastName) p.lastname = lead.lastName;\n    if (lead.phone) p.phone = lead.phone;\n    if (lead.company) p.company = lead.company;\n    if (lead.jobTitle) p.jobtitle = lead.jobTitle;\n    if (lead.country) p.country = lead.country;\n    p.hubspot_owner_id = existingOwnerId || owner.ownerId;\n    if (scoreProperty) p[scoreProperty] = String(score.score);\n    return p;\n  }\n  var ASSOC = { DEAL_TO_CONTACT: 3, TASK_TO_CONTACT: 204, TASK_TO_DEAL: 216 };\n  var assoc = (id, typeId) => ({ to: { id }, types: [{ associationCategory: \"HUBSPOT_DEFINED\", associationTypeId: typeId }] });\n  function dealBody(lead, score, ownerId, contactId, rules) {\n    const name = `${lead.company || `${lead.firstName} ${lead.lastName}`.trim()} - inbound (${score.tier})`;\n    const properties = { dealname: name, pipeline: rules.deal.pipeline, dealstage: rules.deal.dealstage, hubspot_owner_id: ownerId };\n    if (lead.budget) properties.amount = String(lead.budget);\n    return { properties, associations: [assoc(contactId, ASSOC.DEAL_TO_CONTACT)] };\n  }\n  function taskBody(lead, score, ownerId, contactId, dealId, nowMs) {\n    return {\n      properties: {\n        hs_timestamp: new Date(nowMs + score.taskDueHours * 36e5).toISOString(),\n        hs_task_subject: `Follow up: ${lead.firstName} ${lead.lastName}`.trim() + ` (${score.tier}, score ${score.score})`,\n        hs_task_body: [`Score reasons: ${score.reasons.join(\", \") || \"none\"}`, lead.message ? `Message: ${lead.message}` : \"\"].filter(Boolean).join(\"\\n\"),\n        hs_task_status: \"NOT_STARTED\",\n        hs_task_priority: score.taskPriority,\n        hs_task_type: score.tier === \"hot\" ? \"CALL\" : \"EMAIL\",\n        hubspot_owner_id: ownerId\n      },\n      associations: [assoc(contactId, ASSOC.TASK_TO_CONTACT), assoc(dealId, ASSOC.TASK_TO_DEAL)]\n    };\n  }\n  function slackMessage(lead, score, owner, contactId, dealId, isNew) {\n    const emoji = score.tier === \"hot\" ? \":fire:\" : score.tier === \"warm\" ? \":sunny:\" : \":snowflake:\";\n    return {\n      text: `${emoji} ${isNew ? \"New\" : \"Returning\"} ${score.tier} lead: ${lead.firstName} ${lead.lastName}`.trim() + `${lead.company ? ` (${lead.company})` : \"\"}, score ${score.score} -> ${owner.ownerName}. Contact ${contactId}, deal ${dealId}.`\n    };\n  }\n  function backoffMs(attempt, baseMs, retryAfter, rand = Math.random) {\n    const ra = retryAfter ? Number(retryAfter) : NaN;\n    if (Number.isFinite(ra) && ra >= 0) return ra * 1e3;\n    return Math.round(rand() * baseMs * 2 ** (attempt - 1));\n  }\n  var isRetryable = (status) => status === 429 || status >= 500;\n  return __toCommonJS(core_exports);\n})();\n// --- end bundle ---\nconst RULES = {\"_note\":\"Demo rules. Owner ids are placeholders; replace with real HubSpot owner ids (GET /crm/v3/owners).\",\"freeEmailDomains\":[\"gmail.com\",\"yahoo.com\",\"hotmail.com\",\"outlook.com\",\"icloud.com\",\"walla.co.il\",\"aol.com\",\"proton.me\"],\"scoring\":[{\"id\":\"budget_10k\",\"points\":30,\"when\":{\"field\":\"budget\",\"gte\":10000}},{\"id\":\"budget_3k\",\"points\":15,\"when\":{\"field\":\"budget\",\"gte\":3000,\"lt\":10000}},{\"id\":\"business_email\",\"points\":15,\"when\":{\"field\":\"businessEmail\",\"equals\":true}},{\"id\":\"decision_maker\",\"points\":15,\"when\":{\"field\":\"jobTitle\",\"matches\":\"\\\\b(founder|owner|ceo|cto|coo|head|director|vp)\\\\b\"}},{\"id\":\"has_phone\",\"points\":5,\"when\":{\"field\":\"phone\",\"present\":true}},{\"id\":\"detailed_message\",\"points\":5,\"when\":{\"field\":\"message\",\"minLength\":60}},{\"id\":\"referral\",\"points\":10,\"when\":{\"field\":\"source\",\"matches\":\"^(referral|partner)$\"}},{\"id\":\"urgent_timeline\",\"points\":10,\"when\":{\"field\":\"timeline\",\"matches\":\"^(asap|this_month)$\"}}],\"tiers\":[{\"tier\":\"hot\",\"minScore\":60,\"taskDueHours\":1,\"taskPriority\":\"HIGH\"},{\"tier\":\"warm\",\"minScore\":30,\"taskDueHours\":24,\"taskPriority\":\"MEDIUM\"},{\"tier\":\"cold\",\"minScore\":0,\"taskDueHours\":72,\"taskPriority\":\"LOW\"}],\"routing\":[{\"id\":\"enterprise\",\"when\":{\"field\":\"budget\",\"gte\":10000},\"ownerId\":\"1001\",\"ownerName\":\"Senior AE (demo)\"},{\"id\":\"israel\",\"when\":{\"field\":\"country\",\"matches\":\"^IL$\"},\"ownerId\":\"1002\",\"ownerName\":\"IL rep (demo)\"}],\"roundRobin\":[{\"ownerId\":\"2001\",\"ownerName\":\"SDR A (demo)\"},{\"ownerId\":\"2002\",\"ownerName\":\"SDR B (demo)\"}],\"deal\":{\"pipeline\":\"default\",\"dealstage\":\"appointmentscheduled\"}};\nconst item = $input.first().json;\nconst headers = item.headers || {};\nconst token = headers['x-webhook-token'] || (item.query || {}).token || '';\nif (!$env.WEBHOOK_TOKEN || token !== $env.WEBHOOK_TOKEN) return [{ json: { ok: false, status: 401, errors: ['invalid token'] } }];\nlet raw = item.body || {};\nconst v = LeadCore.validate(raw, RULES, $env.DEFAULT_CALLING_CODE || '972');\nif (!v.ok) return [{ json: { ok: false, status: 422, errors: v.errors } }];\nconst state = $getWorkflowStaticData('global');\nstate.seen = state.seen || {};\nif (v.lead.submissionId && state.seen[v.lead.submissionId]) return [{ json: { ok: false, status: 200, errors: ['duplicate_submission'] } }];\nif (v.lead.submissionId) state.seen[v.lead.submissionId] = Date.now();\nstate.rr = (state.rr || 0) + 1;\nconst score = LeadCore.scoreLead(v.lead, RULES);\nconst owner = LeadCore.routeOwner(v.lead, RULES, state.rr - 1);\nreturn [{ json: { ok: true, raw, lead: v.lead, score, owner, searchBody: LeadCore.contactSearchBody(v.lead) } }];\n"
+      }
+    },
+    {
+      "id": "3",
+      "name": "Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4",
+      "name": "Respond rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        420
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, errors: $json.errors }) }}",
+        "options": {
+          "responseCode": "={{ $json.status }}"
+        }
+      }
+    },
+    {
+      "id": "5",
+      "name": "Search contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        180
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.HUBSPOT_BASE_URL || 'https://api.hubapi.com') + '/crm/v3/objects/contacts/search' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.HUBSPOT_PRIVATE_APP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.searchBody) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "6",
+      "name": "Prepare contact upsert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        160
+      ],
+      "parameters": {
+        "jsCode": "// n8n Code node \"Prepare contact upsert\": decide PATCH (existing by email/phone) or POST (new).\n// --- bundled from src/core.ts (do not edit here) ---\nvar LeadCore = (() => {\n  var __defProp = Object.defineProperty;\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key2 of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key2) && key2 !== except)\n          __defProp(to, key2, { get: () => from[key2], enumerable: !(desc = __getOwnPropDesc(from, key2)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/core.ts\n  var core_exports = {};\n  __export(core_exports, {\n    ASSOC: () => ASSOC,\n    backoffMs: () => backoffMs,\n    contactProperties: () => contactProperties,\n    contactSearchBody: () => contactSearchBody,\n    dealBody: () => dealBody,\n    flatten: () => flatten,\n    isRetryable: () => isRetryable,\n    matches: () => matches,\n    normalizeEmail: () => normalizeEmail,\n    normalizePhone: () => normalizePhone,\n    parseBudget: () => parseBudget,\n    routeOwner: () => routeOwner,\n    scoreLead: () => scoreLead,\n    slackMessage: () => slackMessage,\n    taskBody: () => taskBody,\n    titleCase: () => titleCase,\n    validate: () => validate\n  });\n  var ALIASES = {\n    email: [\"email\", \"emailaddress\", \"e-mail\", \"mail\"],\n    firstName: [\"firstname\", \"first\", \"fname\", \"givenname\"],\n    lastName: [\"lastname\", \"last\", \"lname\", \"surname\", \"familyname\"],\n    phone: [\"phone\", \"phonenumber\", \"mobile\", \"tel\", \"telephone\", \"full\"],\n    company: [\"company\", \"companyname\", \"organization\", \"business\"],\n    jobTitle: [\"jobtitle\", \"title\", \"role\", \"position\"],\n    country: [\"country\", \"countrycode\"],\n    budget: [\"budget\", \"estimatedbudget\", \"projectbudget\"],\n    timeline: [\"timeline\", \"timeframe\", \"when\"],\n    message: [\"message\", \"comments\", \"details\", \"notes\", \"projectdetails\", \"howcanwehelp\", \"howcan\"],\n    source: [\"source\", \"utmsource\", \"leadsource\", \"howdidyouhear\"],\n    submissionId: [\"submissionid\", \"submission_id\", \"id\"]\n  };\n  var key = (k) => k.toLowerCase().replace(/^q\\d+_/, \"\").replace(/[^a-z0-9]/g, \"\");\n  function flatten(raw) {\n    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;\n    let src = raw;\n    if (typeof raw.rawRequest === \"string\") {\n      try {\n        src = { ...JSON.parse(raw.rawRequest), submissionID: raw.submissionID };\n      } catch {\n      }\n    }\n    const out = {};\n    for (const [k, v] of Object.entries(src)) {\n      if (v == null) continue;\n      if (typeof v === \"object\" && !Array.isArray(v)) {\n        const o = v;\n        if (\"first\" in o || \"last\" in o) {\n          (_b = out.firstname) != null ? _b : out.firstname = String((_a = o.first) != null ? _a : \"\");\n          (_d = out.lastname) != null ? _d : out.lastname = String((_c = o.last) != null ? _c : \"\");\n          continue;\n        }\n        if (\"area\" in o || \"phone\" in o || \"full\" in o) {\n          (_h = out.phone) != null ? _h : out.phone = String((_g = o.full) != null ? _g : `${(_e = o.area) != null ? _e : \"\"}${(_f = o.phone) != null ? _f : \"\"}`);\n          continue;\n        }\n        for (const [k2, v2] of Object.entries(o)) if (v2 != null && typeof v2 !== \"object\") (_j = out[_i = key(k2)]) != null ? _j : out[_i] = String(v2);\n        continue;\n      }\n      const kk = key(k);\n      if (kk === \"name\" || kk === \"fullname\") {\n        const parts = String(v).trim().split(/\\s+/);\n        (_l = out.firstname) != null ? _l : out.firstname = (_k = parts.shift()) != null ? _k : \"\";\n        (_m = out.lastname) != null ? _m : out.lastname = parts.join(\" \");\n        continue;\n      }\n      (_n = out[kk]) != null ? _n : out[kk] = Array.isArray(v) ? v.join(\", \") : String(v);\n    }\n    return out;\n  }\n  function pick(flat, field) {\n    for (const a of ALIASES[field]) {\n      const v = flat[key(a)];\n      if (v != null && String(v).trim() !== \"\") return String(v).trim();\n    }\n    return void 0;\n  }\n  function normalizeEmail(v) {\n    if (!v) return void 0;\n    const e = v.trim().toLowerCase();\n    return /^[^\\s@]+@[^\\s@]+\\.[a-z]{2,}$/.test(e) ? e : void 0;\n  }\n  function normalizePhone(v, defaultCallingCode = \"972\") {\n    if (!v) return void 0;\n    let s = v.trim().replace(/[\\s().-]/g, \"\");\n    if (s.startsWith(\"00\")) s = \"+\" + s.slice(2);\n    if (!s.startsWith(\"+\")) s = s.startsWith(\"0\") ? `+${defaultCallingCode}${s.slice(1)}` : `+${defaultCallingCode}${s}`;\n    return /^\\+[1-9]\\d{7,14}$/.test(s) ? s : void 0;\n  }\n  function titleCase(v) {\n    return v.trim().toLowerCase().replace(/(^|[\\s'-])(\\p{L})/gu, (_m, p, c) => p + c.toUpperCase());\n  }\n  var COUNTRY = { israel: \"IL\", \"united states\": \"US\", usa: \"US\", us: \"US\", \"united kingdom\": \"GB\", uk: \"GB\", germany: \"DE\", canada: \"CA\" };\n  var CALLING_CODE = { IL: \"972\", US: \"1\", CA: \"1\", GB: \"44\", DE: \"49\" };\n  function parseBudget(v) {\n    if (!v) return void 0;\n    const m = v.replace(/,/g, \"\").match(/(\\d+(?:\\.\\d+)?)\\s*(k)?/i);\n    if (!m) return void 0;\n    return Math.round(Number(m[1]) * (m[2] ? 1e3 : 1));\n  }\n  function validate(raw, rules, defaultCallingCode = \"972\") {\n    var _a, _b, _c, _d, _e;\n    const flat = flatten(raw);\n    const errors = [];\n    const rawEmail = pick(flat, \"email\");\n    const email = normalizeEmail(rawEmail);\n    if (!email) errors.push(rawEmail ? `invalid email: ${rawEmail}` : \"email is required\");\n    const countryRaw = pick(flat, \"country\");\n    const country = countryRaw ? (_a = COUNTRY[countryRaw.toLowerCase()]) != null ? _a : countryRaw.length === 2 ? countryRaw.toUpperCase() : void 0 : void 0;\n    const rawPhone = pick(flat, \"phone\");\n    const phone = normalizePhone(rawPhone, country && CALLING_CODE[country] || defaultCallingCode);\n    if (rawPhone && !phone) errors.push(`invalid phone: ${rawPhone}`);\n    const firstName = titleCase((_b = pick(flat, \"firstName\")) != null ? _b : \"\");\n    if (!firstName) errors.push(\"first name is required\");\n    if (errors.length) return { ok: false, errors };\n    const domain = email.split(\"@\")[1];\n    const clean = (s) => s ? s.replace(/\\s+/g, \" \").trim().slice(0, 2e3) : void 0;\n    const lead = {\n      email,\n      firstName,\n      lastName: titleCase((_c = pick(flat, \"lastName\")) != null ? _c : \"\"),\n      phone,\n      company: clean(pick(flat, \"company\")),\n      jobTitle: clean(pick(flat, \"jobTitle\")),\n      country,\n      budget: parseBudget(pick(flat, \"budget\")),\n      timeline: (_d = pick(flat, \"timeline\")) == null ? void 0 : _d.toLowerCase().replace(/\\s+/g, \"_\"),\n      message: clean(pick(flat, \"message\")),\n      source: (_e = pick(flat, \"source\")) == null ? void 0 : _e.toLowerCase(),\n      submissionId: pick(flat, \"submissionId\"),\n      businessEmail: !rules.freeEmailDomains.includes(domain)\n    };\n    return { ok: true, lead, errors: [] };\n  }\n  function matches(lead, c) {\n    const v = lead[c.field];\n    if (c.present !== void 0) return (v != null && v !== \"\") === c.present;\n    if (v == null) return false;\n    if (c.equals !== void 0 && v !== c.equals) return false;\n    if (c.gte !== void 0 && !(typeof v === \"number\" && v >= c.gte)) return false;\n    if (c.lt !== void 0 && !(typeof v === \"number\" && v < c.lt)) return false;\n    if (c.matches !== void 0 && !new RegExp(c.matches, \"i\").test(String(v))) return false;\n    if (c.minLength !== void 0 && String(v).length < c.minLength) return false;\n    return true;\n  }\n  function scoreLead(lead, rules) {\n    const hits = rules.scoring.filter((r) => matches(lead, r.when));\n    const score = Math.min(100, hits.reduce((s, r) => s + r.points, 0));\n    const t = [...rules.tiers].sort((a, b) => b.minScore - a.minScore).find((x) => score >= x.minScore);\n    return { score, tier: t.tier, reasons: hits.map((h) => `${h.id} +${h.points}`), taskDueHours: t.taskDueHours, taskPriority: t.taskPriority };\n  }\n  function routeOwner(lead, rules, counter) {\n    const r = rules.routing.find((x) => matches(lead, x.when));\n    if (r) return { ownerId: r.ownerId, ownerName: r.ownerName, rule: r.id };\n    const o = rules.roundRobin[counter % rules.roundRobin.length];\n    return { ...o, rule: \"round_robin\" };\n  }\n  function contactSearchBody(lead) {\n    const filterGroups = [{ filters: [{ propertyName: \"email\", operator: \"EQ\", value: lead.email }] }];\n    if (lead.phone) filterGroups.push({ filters: [{ propertyName: \"phone\", operator: \"EQ\", value: lead.phone }] });\n    return { filterGroups, properties: [\"email\", \"phone\", \"firstname\", \"lastname\", \"hubspot_owner_id\"], limit: 2 };\n  }\n  function contactProperties(lead, score, owner, scoreProperty, existingOwnerId) {\n    const p = { email: lead.email, firstname: lead.firstName, lifecyclestage: \"lead\", hs_lead_status: \"NEW\" };\n    if (lead.lastName) p.lastname = lead.lastName;\n    if (lead.phone) p.phone = lead.phone;\n    if (lead.company) p.company = lead.company;\n    if (lead.jobTitle) p.jobtitle = lead.jobTitle;\n    if (lead.country) p.country = lead.country;\n    p.hubspot_owner_id = existingOwnerId || owner.ownerId;\n    if (scoreProperty) p[scoreProperty] = String(score.score);\n    return p;\n  }\n  var ASSOC = { DEAL_TO_CONTACT: 3, TASK_TO_CONTACT: 204, TASK_TO_DEAL: 216 };\n  var assoc = (id, typeId) => ({ to: { id }, types: [{ associationCategory: \"HUBSPOT_DEFINED\", associationTypeId: typeId }] });\n  function dealBody(lead, score, ownerId, contactId, rules) {\n    const name = `${lead.company || `${lead.firstName} ${lead.lastName}`.trim()} - inbound (${score.tier})`;\n    const properties = { dealname: name, pipeline: rules.deal.pipeline, dealstage: rules.deal.dealstage, hubspot_owner_id: ownerId };\n    if (lead.budget) properties.amount = String(lead.budget);\n    return { properties, associations: [assoc(contactId, ASSOC.DEAL_TO_CONTACT)] };\n  }\n  function taskBody(lead, score, ownerId, contactId, dealId, nowMs) {\n    return {\n      properties: {\n        hs_timestamp: new Date(nowMs + score.taskDueHours * 36e5).toISOString(),\n        hs_task_subject: `Follow up: ${lead.firstName} ${lead.lastName}`.trim() + ` (${score.tier}, score ${score.score})`,\n        hs_task_body: [`Score reasons: ${score.reasons.join(\", \") || \"none\"}`, lead.message ? `Message: ${lead.message}` : \"\"].filter(Boolean).join(\"\\n\"),\n        hs_task_status: \"NOT_STARTED\",\n        hs_task_priority: score.taskPriority,\n        hs_task_type: score.tier === \"hot\" ? \"CALL\" : \"EMAIL\",\n        hubspot_owner_id: ownerId\n      },\n      associations: [assoc(contactId, ASSOC.TASK_TO_CONTACT), assoc(dealId, ASSOC.TASK_TO_DEAL)]\n    };\n  }\n  function slackMessage(lead, score, owner, contactId, dealId, isNew) {\n    const emoji = score.tier === \"hot\" ? \":fire:\" : score.tier === \"warm\" ? \":sunny:\" : \":snowflake:\";\n    return {\n      text: `${emoji} ${isNew ? \"New\" : \"Returning\"} ${score.tier} lead: ${lead.firstName} ${lead.lastName}`.trim() + `${lead.company ? ` (${lead.company})` : \"\"}, score ${score.score} -> ${owner.ownerName}. Contact ${contactId}, deal ${dealId}.`\n    };\n  }\n  function backoffMs(attempt, baseMs, retryAfter, rand = Math.random) {\n    const ra = retryAfter ? Number(retryAfter) : NaN;\n    if (Number.isFinite(ra) && ra >= 0) return ra * 1e3;\n    return Math.round(rand() * baseMs * 2 ** (attempt - 1));\n  }\n  var isRetryable = (status) => status === 429 || status >= 500;\n  return __toCommonJS(core_exports);\n})();\n// --- end bundle ---\nconst ctx = $('Validate, score & route').first().json;\nconst found = $input.first().json.results || [];\nconst existing = found.find((r) => (r.properties.email || '').toLowerCase() === ctx.lead.email) || found[0];\nconst ownerId = (existing && existing.properties.hubspot_owner_id) || ctx.owner.ownerId;\nconst props = LeadCore.contactProperties(ctx.lead, ctx.score, ctx.owner, $env.HUBSPOT_SCORE_PROPERTY || undefined, existing && existing.properties.hubspot_owner_id);\nif (existing) {\n  delete props.lifecyclestage; delete props.hs_lead_status;\n  if (existing.properties.email) delete props.email;\n}\nreturn [{ json: {\n  method: existing ? 'PATCH' : 'POST',\n  path: existing ? `/crm/v3/objects/contacts/${existing.id}` : '/crm/v3/objects/contacts',\n  isNew: !existing, ownerId, body: { properties: props },\n} }];\n"
+      }
+    },
+    {
+      "id": "7",
+      "name": "Upsert contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        160
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "={{ $json.method }}",
+        "url": "={{ ($env.HUBSPOT_BASE_URL || 'https://api.hubapi.com') + $json.path }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.HUBSPOT_PRIVATE_APP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "8",
+      "name": "Prepare deal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        140
+      ],
+      "parameters": {
+        "jsCode": "// n8n Code node \"Prepare deal\".\n// --- bundled from src/core.ts (do not edit here) ---\nvar LeadCore = (() => {\n  var __defProp = Object.defineProperty;\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key2 of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key2) && key2 !== except)\n          __defProp(to, key2, { get: () => from[key2], enumerable: !(desc = __getOwnPropDesc(from, key2)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/core.ts\n  var core_exports = {};\n  __export(core_exports, {\n    ASSOC: () => ASSOC,\n    backoffMs: () => backoffMs,\n    contactProperties: () => contactProperties,\n    contactSearchBody: () => contactSearchBody,\n    dealBody: () => dealBody,\n    flatten: () => flatten,\n    isRetryable: () => isRetryable,\n    matches: () => matches,\n    normalizeEmail: () => normalizeEmail,\n    normalizePhone: () => normalizePhone,\n    parseBudget: () => parseBudget,\n    routeOwner: () => routeOwner,\n    scoreLead: () => scoreLead,\n    slackMessage: () => slackMessage,\n    taskBody: () => taskBody,\n    titleCase: () => titleCase,\n    validate: () => validate\n  });\n  var ALIASES = {\n    email: [\"email\", \"emailaddress\", \"e-mail\", \"mail\"],\n    firstName: [\"firstname\", \"first\", \"fname\", \"givenname\"],\n    lastName: [\"lastname\", \"last\", \"lname\", \"surname\", \"familyname\"],\n    phone: [\"phone\", \"phonenumber\", \"mobile\", \"tel\", \"telephone\", \"full\"],\n    company: [\"company\", \"companyname\", \"organization\", \"business\"],\n    jobTitle: [\"jobtitle\", \"title\", \"role\", \"position\"],\n    country: [\"country\", \"countrycode\"],\n    budget: [\"budget\", \"estimatedbudget\", \"projectbudget\"],\n    timeline: [\"timeline\", \"timeframe\", \"when\"],\n    message: [\"message\", \"comments\", \"details\", \"notes\", \"projectdetails\", \"howcanwehelp\", \"howcan\"],\n    source: [\"source\", \"utmsource\", \"leadsource\", \"howdidyouhear\"],\n    submissionId: [\"submissionid\", \"submission_id\", \"id\"]\n  };\n  var key = (k) => k.toLowerCase().replace(/^q\\d+_/, \"\").replace(/[^a-z0-9]/g, \"\");\n  function flatten(raw) {\n    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;\n    let src = raw;\n    if (typeof raw.rawRequest === \"string\") {\n      try {\n        src = { ...JSON.parse(raw.rawRequest), submissionID: raw.submissionID };\n      } catch {\n      }\n    }\n    const out = {};\n    for (const [k, v] of Object.entries(src)) {\n      if (v == null) continue;\n      if (typeof v === \"object\" && !Array.isArray(v)) {\n        const o = v;\n        if (\"first\" in o || \"last\" in o) {\n          (_b = out.firstname) != null ? _b : out.firstname = String((_a = o.first) != null ? _a : \"\");\n          (_d = out.lastname) != null ? _d : out.lastname = String((_c = o.last) != null ? _c : \"\");\n          continue;\n        }\n        if (\"area\" in o || \"phone\" in o || \"full\" in o) {\n          (_h = out.phone) != null ? _h : out.phone = String((_g = o.full) != null ? _g : `${(_e = o.area) != null ? _e : \"\"}${(_f = o.phone) != null ? _f : \"\"}`);\n          continue;\n        }\n        for (const [k2, v2] of Object.entries(o)) if (v2 != null && typeof v2 !== \"object\") (_j = out[_i = key(k2)]) != null ? _j : out[_i] = String(v2);\n        continue;\n      }\n      const kk = key(k);\n      if (kk === \"name\" || kk === \"fullname\") {\n        const parts = String(v).trim().split(/\\s+/);\n        (_l = out.firstname) != null ? _l : out.firstname = (_k = parts.shift()) != null ? _k : \"\";\n        (_m = out.lastname) != null ? _m : out.lastname = parts.join(\" \");\n        continue;\n      }\n      (_n = out[kk]) != null ? _n : out[kk] = Array.isArray(v) ? v.join(\", \") : String(v);\n    }\n    return out;\n  }\n  function pick(flat, field) {\n    for (const a of ALIASES[field]) {\n      const v = flat[key(a)];\n      if (v != null && String(v).trim() !== \"\") return String(v).trim();\n    }\n    return void 0;\n  }\n  function normalizeEmail(v) {\n    if (!v) return void 0;\n    const e = v.trim().toLowerCase();\n    return /^[^\\s@]+@[^\\s@]+\\.[a-z]{2,}$/.test(e) ? e : void 0;\n  }\n  function normalizePhone(v, defaultCallingCode = \"972\") {\n    if (!v) return void 0;\n    let s = v.trim().replace(/[\\s().-]/g, \"\");\n    if (s.startsWith(\"00\")) s = \"+\" + s.slice(2);\n    if (!s.startsWith(\"+\")) s = s.startsWith(\"0\") ? `+${defaultCallingCode}${s.slice(1)}` : `+${defaultCallingCode}${s}`;\n    return /^\\+[1-9]\\d{7,14}$/.test(s) ? s : void 0;\n  }\n  function titleCase(v) {\n    return v.trim().toLowerCase().replace(/(^|[\\s'-])(\\p{L})/gu, (_m, p, c) => p + c.toUpperCase());\n  }\n  var COUNTRY = { israel: \"IL\", \"united states\": \"US\", usa: \"US\", us: \"US\", \"united kingdom\": \"GB\", uk: \"GB\", germany: \"DE\", canada: \"CA\" };\n  var CALLING_CODE = { IL: \"972\", US: \"1\", CA: \"1\", GB: \"44\", DE: \"49\" };\n  function parseBudget(v) {\n    if (!v) return void 0;\n    const m = v.replace(/,/g, \"\").match(/(\\d+(?:\\.\\d+)?)\\s*(k)?/i);\n    if (!m) return void 0;\n    return Math.round(Number(m[1]) * (m[2] ? 1e3 : 1));\n  }\n  function validate(raw, rules, defaultCallingCode = \"972\") {\n    var _a, _b, _c, _d, _e;\n    const flat = flatten(raw);\n    const errors = [];\n    const rawEmail = pick(flat, \"email\");\n    const email = normalizeEmail(rawEmail);\n    if (!email) errors.push(rawEmail ? `invalid email: ${rawEmail}` : \"email is required\");\n    const countryRaw = pick(flat, \"country\");\n    const country = countryRaw ? (_a = COUNTRY[countryRaw.toLowerCase()]) != null ? _a : countryRaw.length === 2 ? countryRaw.toUpperCase() : void 0 : void 0;\n    const rawPhone = pick(flat, \"phone\");\n    const phone = normalizePhone(rawPhone, country && CALLING_CODE[country] || defaultCallingCode);\n    if (rawPhone && !phone) errors.push(`invalid phone: ${rawPhone}`);\n    const firstName = titleCase((_b = pick(flat, \"firstName\")) != null ? _b : \"\");\n    if (!firstName) errors.push(\"first name is required\");\n    if (errors.length) return { ok: false, errors };\n    const domain = email.split(\"@\")[1];\n    const clean = (s) => s ? s.replace(/\\s+/g, \" \").trim().slice(0, 2e3) : void 0;\n    const lead = {\n      email,\n      firstName,\n      lastName: titleCase((_c = pick(flat, \"lastName\")) != null ? _c : \"\"),\n      phone,\n      company: clean(pick(flat, \"company\")),\n      jobTitle: clean(pick(flat, \"jobTitle\")),\n      country,\n      budget: parseBudget(pick(flat, \"budget\")),\n      timeline: (_d = pick(flat, \"timeline\")) == null ? void 0 : _d.toLowerCase().replace(/\\s+/g, \"_\"),\n      message: clean(pick(flat, \"message\")),\n      source: (_e = pick(flat, \"source\")) == null ? void 0 : _e.toLowerCase(),\n      submissionId: pick(flat, \"submissionId\"),\n      businessEmail: !rules.freeEmailDomains.includes(domain)\n    };\n    return { ok: true, lead, errors: [] };\n  }\n  function matches(lead, c) {\n    const v = lead[c.field];\n    if (c.present !== void 0) return (v != null && v !== \"\") === c.present;\n    if (v == null) return false;\n    if (c.equals !== void 0 && v !== c.equals) return false;\n    if (c.gte !== void 0 && !(typeof v === \"number\" && v >= c.gte)) return false;\n    if (c.lt !== void 0 && !(typeof v === \"number\" && v < c.lt)) return false;\n    if (c.matches !== void 0 && !new RegExp(c.matches, \"i\").test(String(v))) return false;\n    if (c.minLength !== void 0 && String(v).length < c.minLength) return false;\n    return true;\n  }\n  function scoreLead(lead, rules) {\n    const hits = rules.scoring.filter((r) => matches(lead, r.when));\n    const score = Math.min(100, hits.reduce((s, r) => s + r.points, 0));\n    const t = [...rules.tiers].sort((a, b) => b.minScore - a.minScore).find((x) => score >= x.minScore);\n    return { score, tier: t.tier, reasons: hits.map((h) => `${h.id} +${h.points}`), taskDueHours: t.taskDueHours, taskPriority: t.taskPriority };\n  }\n  function routeOwner(lead, rules, counter) {\n    const r = rules.routing.find((x) => matches(lead, x.when));\n    if (r) return { ownerId: r.ownerId, ownerName: r.ownerName, rule: r.id };\n    const o = rules.roundRobin[counter % rules.roundRobin.length];\n    return { ...o, rule: \"round_robin\" };\n  }\n  function contactSearchBody(lead) {\n    const filterGroups = [{ filters: [{ propertyName: \"email\", operator: \"EQ\", value: lead.email }] }];\n    if (lead.phone) filterGroups.push({ filters: [{ propertyName: \"phone\", operator: \"EQ\", value: lead.phone }] });\n    return { filterGroups, properties: [\"email\", \"phone\", \"firstname\", \"lastname\", \"hubspot_owner_id\"], limit: 2 };\n  }\n  function contactProperties(lead, score, owner, scoreProperty, existingOwnerId) {\n    const p = { email: lead.email, firstname: lead.firstName, lifecyclestage: \"lead\", hs_lead_status: \"NEW\" };\n    if (lead.lastName) p.lastname = lead.lastName;\n    if (lead.phone) p.phone = lead.phone;\n    if (lead.company) p.company = lead.company;\n    if (lead.jobTitle) p.jobtitle = lead.jobTitle;\n    if (lead.country) p.country = lead.country;\n    p.hubspot_owner_id = existingOwnerId || owner.ownerId;\n    if (scoreProperty) p[scoreProperty] = String(score.score);\n    return p;\n  }\n  var ASSOC = { DEAL_TO_CONTACT: 3, TASK_TO_CONTACT: 204, TASK_TO_DEAL: 216 };\n  var assoc = (id, typeId) => ({ to: { id }, types: [{ associationCategory: \"HUBSPOT_DEFINED\", associationTypeId: typeId }] });\n  function dealBody(lead, score, ownerId, contactId, rules) {\n    const name = `${lead.company || `${lead.firstName} ${lead.lastName}`.trim()} - inbound (${score.tier})`;\n    const properties = { dealname: name, pipeline: rules.deal.pipeline, dealstage: rules.deal.dealstage, hubspot_owner_id: ownerId };\n    if (lead.budget) properties.amount = String(lead.budget);\n    return { properties, associations: [assoc(contactId, ASSOC.DEAL_TO_CONTACT)] };\n  }\n  function taskBody(lead, score, ownerId, contactId, dealId, nowMs) {\n    return {\n      properties: {\n        hs_timestamp: new Date(nowMs + score.taskDueHours * 36e5).toISOString(),\n        hs_task_subject: `Follow up: ${lead.firstName} ${lead.lastName}`.trim() + ` (${score.tier}, score ${score.score})`,\n        hs_task_body: [`Score reasons: ${score.reasons.join(\", \") || \"none\"}`, lead.message ? `Message: ${lead.message}` : \"\"].filter(Boolean).join(\"\\n\"),\n        hs_task_status: \"NOT_STARTED\",\n        hs_task_priority: score.taskPriority,\n        hs_task_type: score.tier === \"hot\" ? \"CALL\" : \"EMAIL\",\n        hubspot_owner_id: ownerId\n      },\n      associations: [assoc(contactId, ASSOC.TASK_TO_CONTACT), assoc(dealId, ASSOC.TASK_TO_DEAL)]\n    };\n  }\n  function slackMessage(lead, score, owner, contactId, dealId, isNew) {\n    const emoji = score.tier === \"hot\" ? \":fire:\" : score.tier === \"warm\" ? \":sunny:\" : \":snowflake:\";\n    return {\n      text: `${emoji} ${isNew ? \"New\" : \"Returning\"} ${score.tier} lead: ${lead.firstName} ${lead.lastName}`.trim() + `${lead.company ? ` (${lead.company})` : \"\"}, score ${score.score} -> ${owner.ownerName}. Contact ${contactId}, deal ${dealId}.`\n    };\n  }\n  function backoffMs(attempt, baseMs, retryAfter, rand = Math.random) {\n    const ra = retryAfter ? Number(retryAfter) : NaN;\n    if (Number.isFinite(ra) && ra >= 0) return ra * 1e3;\n    return Math.round(rand() * baseMs * 2 ** (attempt - 1));\n  }\n  var isRetryable = (status) => status === 429 || status >= 500;\n  return __toCommonJS(core_exports);\n})();\n// --- end bundle ---\nconst RULES = {\"_note\":\"Demo rules. Owner ids are placeholders; replace with real HubSpot owner ids (GET /crm/v3/owners).\",\"freeEmailDomains\":[\"gmail.com\",\"yahoo.com\",\"hotmail.com\",\"outlook.com\",\"icloud.com\",\"walla.co.il\",\"aol.com\",\"proton.me\"],\"scoring\":[{\"id\":\"budget_10k\",\"points\":30,\"when\":{\"field\":\"budget\",\"gte\":10000}},{\"id\":\"budget_3k\",\"points\":15,\"when\":{\"field\":\"budget\",\"gte\":3000,\"lt\":10000}},{\"id\":\"business_email\",\"points\":15,\"when\":{\"field\":\"businessEmail\",\"equals\":true}},{\"id\":\"decision_maker\",\"points\":15,\"when\":{\"field\":\"jobTitle\",\"matches\":\"\\\\b(founder|owner|ceo|cto|coo|head|director|vp)\\\\b\"}},{\"id\":\"has_phone\",\"points\":5,\"when\":{\"field\":\"phone\",\"present\":true}},{\"id\":\"detailed_message\",\"points\":5,\"when\":{\"field\":\"message\",\"minLength\":60}},{\"id\":\"referral\",\"points\":10,\"when\":{\"field\":\"source\",\"matches\":\"^(referral|partner)$\"}},{\"id\":\"urgent_timeline\",\"points\":10,\"when\":{\"field\":\"timeline\",\"matches\":\"^(asap|this_month)$\"}}],\"tiers\":[{\"tier\":\"hot\",\"minScore\":60,\"taskDueHours\":1,\"taskPriority\":\"HIGH\"},{\"tier\":\"warm\",\"minScore\":30,\"taskDueHours\":24,\"taskPriority\":\"MEDIUM\"},{\"tier\":\"cold\",\"minScore\":0,\"taskDueHours\":72,\"taskPriority\":\"LOW\"}],\"routing\":[{\"id\":\"enterprise\",\"when\":{\"field\":\"budget\",\"gte\":10000},\"ownerId\":\"1001\",\"ownerName\":\"Senior AE (demo)\"},{\"id\":\"israel\",\"when\":{\"field\":\"country\",\"matches\":\"^IL$\"},\"ownerId\":\"1002\",\"ownerName\":\"IL rep (demo)\"}],\"roundRobin\":[{\"ownerId\":\"2001\",\"ownerName\":\"SDR A (demo)\"},{\"ownerId\":\"2002\",\"ownerName\":\"SDR B (demo)\"}],\"deal\":{\"pipeline\":\"default\",\"dealstage\":\"appointmentscheduled\"}};\nconst ctx = $('Validate, score & route').first().json;\nconst up = $('Prepare contact upsert').first().json;\nconst contactId = $input.first().json.id;\nreturn [{ json: { contactId, body: LeadCore.dealBody(ctx.lead, ctx.score, up.ownerId, contactId, RULES) } }];\n"
+      }
+    },
+    {
+      "id": "9",
+      "name": "Create deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        140
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.HUBSPOT_BASE_URL || 'https://api.hubapi.com') + '/crm/v3/objects/deals' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.HUBSPOT_PRIVATE_APP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "10",
+      "name": "Prepare task + alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        120
+      ],
+      "parameters": {
+        "jsCode": "// n8n Code node \"Prepare task + alert\".\n// --- bundled from src/core.ts (do not edit here) ---\nvar LeadCore = (() => {\n  var __defProp = Object.defineProperty;\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key2 of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key2) && key2 !== except)\n          __defProp(to, key2, { get: () => from[key2], enumerable: !(desc = __getOwnPropDesc(from, key2)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/core.ts\n  var core_exports = {};\n  __export(core_exports, {\n    ASSOC: () => ASSOC,\n    backoffMs: () => backoffMs,\n    contactProperties: () => contactProperties,\n    contactSearchBody: () => contactSearchBody,\n    dealBody: () => dealBody,\n    flatten: () => flatten,\n    isRetryable: () => isRetryable,\n    matches: () => matches,\n    normalizeEmail: () => normalizeEmail,\n    normalizePhone: () => normalizePhone,\n    parseBudget: () => parseBudget,\n    routeOwner: () => routeOwner,\n    scoreLead: () => scoreLead,\n    slackMessage: () => slackMessage,\n    taskBody: () => taskBody,\n    titleCase: () => titleCase,\n    validate: () => validate\n  });\n  var ALIASES = {\n    email: [\"email\", \"emailaddress\", \"e-mail\", \"mail\"],\n    firstName: [\"firstname\", \"first\", \"fname\", \"givenname\"],\n    lastName: [\"lastname\", \"last\", \"lname\", \"surname\", \"familyname\"],\n    phone: [\"phone\", \"phonenumber\", \"mobile\", \"tel\", \"telephone\", \"full\"],\n    company: [\"company\", \"companyname\", \"organization\", \"business\"],\n    jobTitle: [\"jobtitle\", \"title\", \"role\", \"position\"],\n    country: [\"country\", \"countrycode\"],\n    budget: [\"budget\", \"estimatedbudget\", \"projectbudget\"],\n    timeline: [\"timeline\", \"timeframe\", \"when\"],\n    message: [\"message\", \"comments\", \"details\", \"notes\", \"projectdetails\", \"howcanwehelp\", \"howcan\"],\n    source: [\"source\", \"utmsource\", \"leadsource\", \"howdidyouhear\"],\n    submissionId: [\"submissionid\", \"submission_id\", \"id\"]\n  };\n  var key = (k) => k.toLowerCase().replace(/^q\\d+_/, \"\").replace(/[^a-z0-9]/g, \"\");\n  function flatten(raw) {\n    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;\n    let src = raw;\n    if (typeof raw.rawRequest === \"string\") {\n      try {\n        src = { ...JSON.parse(raw.rawRequest), submissionID: raw.submissionID };\n      } catch {\n      }\n    }\n    const out = {};\n    for (const [k, v] of Object.entries(src)) {\n      if (v == null) continue;\n      if (typeof v === \"object\" && !Array.isArray(v)) {\n        const o = v;\n        if (\"first\" in o || \"last\" in o) {\n          (_b = out.firstname) != null ? _b : out.firstname = String((_a = o.first) != null ? _a : \"\");\n          (_d = out.lastname) != null ? _d : out.lastname = String((_c = o.last) != null ? _c : \"\");\n          continue;\n        }\n        if (\"area\" in o || \"phone\" in o || \"full\" in o) {\n          (_h = out.phone) != null ? _h : out.phone = String((_g = o.full) != null ? _g : `${(_e = o.area) != null ? _e : \"\"}${(_f = o.phone) != null ? _f : \"\"}`);\n          continue;\n        }\n        for (const [k2, v2] of Object.entries(o)) if (v2 != null && typeof v2 !== \"object\") (_j = out[_i = key(k2)]) != null ? _j : out[_i] = String(v2);\n        continue;\n      }\n      const kk = key(k);\n      if (kk === \"name\" || kk === \"fullname\") {\n        const parts = String(v).trim().split(/\\s+/);\n        (_l = out.firstname) != null ? _l : out.firstname = (_k = parts.shift()) != null ? _k : \"\";\n        (_m = out.lastname) != null ? _m : out.lastname = parts.join(\" \");\n        continue;\n      }\n      (_n = out[kk]) != null ? _n : out[kk] = Array.isArray(v) ? v.join(\", \") : String(v);\n    }\n    return out;\n  }\n  function pick(flat, field) {\n    for (const a of ALIASES[field]) {\n      const v = flat[key(a)];\n      if (v != null && String(v).trim() !== \"\") return String(v).trim();\n    }\n    return void 0;\n  }\n  function normalizeEmail(v) {\n    if (!v) return void 0;\n    const e = v.trim().toLowerCase();\n    return /^[^\\s@]+@[^\\s@]+\\.[a-z]{2,}$/.test(e) ? e : void 0;\n  }\n  function normalizePhone(v, defaultCallingCode = \"972\") {\n    if (!v) return void 0;\n    let s = v.trim().replace(/[\\s().-]/g, \"\");\n    if (s.startsWith(\"00\")) s = \"+\" + s.slice(2);\n    if (!s.startsWith(\"+\")) s = s.startsWith(\"0\") ? `+${defaultCallingCode}${s.slice(1)}` : `+${defaultCallingCode}${s}`;\n    return /^\\+[1-9]\\d{7,14}$/.test(s) ? s : void 0;\n  }\n  function titleCase(v) {\n    return v.trim().toLowerCase().replace(/(^|[\\s'-])(\\p{L})/gu, (_m, p, c) => p + c.toUpperCase());\n  }\n  var COUNTRY = { israel: \"IL\", \"united states\": \"US\", usa: \"US\", us: \"US\", \"united kingdom\": \"GB\", uk: \"GB\", germany: \"DE\", canada: \"CA\" };\n  var CALLING_CODE = { IL: \"972\", US: \"1\", CA: \"1\", GB: \"44\", DE: \"49\" };\n  function parseBudget(v) {\n    if (!v) return void 0;\n    const m = v.replace(/,/g, \"\").match(/(\\d+(?:\\.\\d+)?)\\s*(k)?/i);\n    if (!m) return void 0;\n    return Math.round(Number(m[1]) * (m[2] ? 1e3 : 1));\n  }\n  function validate(raw, rules, defaultCallingCode = \"972\") {\n    var _a, _b, _c, _d, _e;\n    const flat = flatten(raw);\n    const errors = [];\n    const rawEmail = pick(flat, \"email\");\n    const email = normalizeEmail(rawEmail);\n    if (!email) errors.push(rawEmail ? `invalid email: ${rawEmail}` : \"email is required\");\n    const countryRaw = pick(flat, \"country\");\n    const country = countryRaw ? (_a = COUNTRY[countryRaw.toLowerCase()]) != null ? _a : countryRaw.length === 2 ? countryRaw.toUpperCase() : void 0 : void 0;\n    const rawPhone = pick(flat, \"phone\");\n    const phone = normalizePhone(rawPhone, country && CALLING_CODE[country] || defaultCallingCode);\n    if (rawPhone && !phone) errors.push(`invalid phone: ${rawPhone}`);\n    const firstName = titleCase((_b = pick(flat, \"firstName\")) != null ? _b : \"\");\n    if (!firstName) errors.push(\"first name is required\");\n    if (errors.length) return { ok: false, errors };\n    const domain = email.split(\"@\")[1];\n    const clean = (s) => s ? s.replace(/\\s+/g, \" \").trim().slice(0, 2e3) : void 0;\n    const lead = {\n      email,\n      firstName,\n      lastName: titleCase((_c = pick(flat, \"lastName\")) != null ? _c : \"\"),\n      phone,\n      company: clean(pick(flat, \"company\")),\n      jobTitle: clean(pick(flat, \"jobTitle\")),\n      country,\n      budget: parseBudget(pick(flat, \"budget\")),\n      timeline: (_d = pick(flat, \"timeline\")) == null ? void 0 : _d.toLowerCase().replace(/\\s+/g, \"_\"),\n      message: clean(pick(flat, \"message\")),\n      source: (_e = pick(flat, \"source\")) == null ? void 0 : _e.toLowerCase(),\n      submissionId: pick(flat, \"submissionId\"),\n      businessEmail: !rules.freeEmailDomains.includes(domain)\n    };\n    return { ok: true, lead, errors: [] };\n  }\n  function matches(lead, c) {\n    const v = lead[c.field];\n    if (c.present !== void 0) return (v != null && v !== \"\") === c.present;\n    if (v == null) return false;\n    if (c.equals !== void 0 && v !== c.equals) return false;\n    if (c.gte !== void 0 && !(typeof v === \"number\" && v >= c.gte)) return false;\n    if (c.lt !== void 0 && !(typeof v === \"number\" && v < c.lt)) return false;\n    if (c.matches !== void 0 && !new RegExp(c.matches, \"i\").test(String(v))) return false;\n    if (c.minLength !== void 0 && String(v).length < c.minLength) return false;\n    return true;\n  }\n  function scoreLead(lead, rules) {\n    const hits = rules.scoring.filter((r) => matches(lead, r.when));\n    const score = Math.min(100, hits.reduce((s, r) => s + r.points, 0));\n    const t = [...rules.tiers].sort((a, b) => b.minScore - a.minScore).find((x) => score >= x.minScore);\n    return { score, tier: t.tier, reasons: hits.map((h) => `${h.id} +${h.points}`), taskDueHours: t.taskDueHours, taskPriority: t.taskPriority };\n  }\n  function routeOwner(lead, rules, counter) {\n    const r = rules.routing.find((x) => matches(lead, x.when));\n    if (r) return { ownerId: r.ownerId, ownerName: r.ownerName, rule: r.id };\n    const o = rules.roundRobin[counter % rules.roundRobin.length];\n    return { ...o, rule: \"round_robin\" };\n  }\n  function contactSearchBody(lead) {\n    const filterGroups = [{ filters: [{ propertyName: \"email\", operator: \"EQ\", value: lead.email }] }];\n    if (lead.phone) filterGroups.push({ filters: [{ propertyName: \"phone\", operator: \"EQ\", value: lead.phone }] });\n    return { filterGroups, properties: [\"email\", \"phone\", \"firstname\", \"lastname\", \"hubspot_owner_id\"], limit: 2 };\n  }\n  function contactProperties(lead, score, owner, scoreProperty, existingOwnerId) {\n    const p = { email: lead.email, firstname: lead.firstName, lifecyclestage: \"lead\", hs_lead_status: \"NEW\" };\n    if (lead.lastName) p.lastname = lead.lastName;\n    if (lead.phone) p.phone = lead.phone;\n    if (lead.company) p.company = lead.company;\n    if (lead.jobTitle) p.jobtitle = lead.jobTitle;\n    if (lead.country) p.country = lead.country;\n    p.hubspot_owner_id = existingOwnerId || owner.ownerId;\n    if (scoreProperty) p[scoreProperty] = String(score.score);\n    return p;\n  }\n  var ASSOC = { DEAL_TO_CONTACT: 3, TASK_TO_CONTACT: 204, TASK_TO_DEAL: 216 };\n  var assoc = (id, typeId) => ({ to: { id }, types: [{ associationCategory: \"HUBSPOT_DEFINED\", associationTypeId: typeId }] });\n  function dealBody(lead, score, ownerId, contactId, rules) {\n    const name = `${lead.company || `${lead.firstName} ${lead.lastName}`.trim()} - inbound (${score.tier})`;\n    const properties = { dealname: name, pipeline: rules.deal.pipeline, dealstage: rules.deal.dealstage, hubspot_owner_id: ownerId };\n    if (lead.budget) properties.amount = String(lead.budget);\n    return { properties, associations: [assoc(contactId, ASSOC.DEAL_TO_CONTACT)] };\n  }\n  function taskBody(lead, score, ownerId, contactId, dealId, nowMs) {\n    return {\n      properties: {\n        hs_timestamp: new Date(nowMs + score.taskDueHours * 36e5).toISOString(),\n        hs_task_subject: `Follow up: ${lead.firstName} ${lead.lastName}`.trim() + ` (${score.tier}, score ${score.score})`,\n        hs_task_body: [`Score reasons: ${score.reasons.join(\", \") || \"none\"}`, lead.message ? `Message: ${lead.message}` : \"\"].filter(Boolean).join(\"\\n\"),\n        hs_task_status: \"NOT_STARTED\",\n        hs_task_priority: score.taskPriority,\n        hs_task_type: score.tier === \"hot\" ? \"CALL\" : \"EMAIL\",\n        hubspot_owner_id: ownerId\n      },\n      associations: [assoc(contactId, ASSOC.TASK_TO_CONTACT), assoc(dealId, ASSOC.TASK_TO_DEAL)]\n    };\n  }\n  function slackMessage(lead, score, owner, contactId, dealId, isNew) {\n    const emoji = score.tier === \"hot\" ? \":fire:\" : score.tier === \"warm\" ? \":sunny:\" : \":snowflake:\";\n    return {\n      text: `${emoji} ${isNew ? \"New\" : \"Returning\"} ${score.tier} lead: ${lead.firstName} ${lead.lastName}`.trim() + `${lead.company ? ` (${lead.company})` : \"\"}, score ${score.score} -> ${owner.ownerName}. Contact ${contactId}, deal ${dealId}.`\n    };\n  }\n  function backoffMs(attempt, baseMs, retryAfter, rand = Math.random) {\n    const ra = retryAfter ? Number(retryAfter) : NaN;\n    if (Number.isFinite(ra) && ra >= 0) return ra * 1e3;\n    return Math.round(rand() * baseMs * 2 ** (attempt - 1));\n  }\n  var isRetryable = (status) => status === 429 || status >= 500;\n  return __toCommonJS(core_exports);\n})();\n// --- end bundle ---\nconst ctx = $('Validate, score & route').first().json;\nconst up = $('Prepare contact upsert').first().json;\nconst contactId = $('Prepare deal').first().json.contactId;\nconst dealId = $input.first().json.id;\nconst owner = { ...ctx.owner, ownerId: up.ownerId, ownerName: up.ownerId === ctx.owner.ownerId ? ctx.owner.ownerName : `existing owner ${up.ownerId}` };\nreturn [{ json: {\n  contactId, dealId,\n  body: LeadCore.taskBody(ctx.lead, ctx.score, up.ownerId, contactId, dealId, Date.now()),\n  slack: LeadCore.slackMessage(ctx.lead, ctx.score, owner, contactId, dealId, up.isNew),\n} }];\n"
+      }
+    },
+    {
+      "id": "11",
+      "name": "Create task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        120
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.HUBSPOT_BASE_URL || 'https://api.hubapi.com') + '/crm/v3/objects/tasks' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.HUBSPOT_PRIVATE_APP_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "12",
+      "name": "Slack alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare task + alert').first().json.slack) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "13",
+      "name": "Respond processed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2420,
+        100
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, contactId: $('Prepare task + alert').first().json.contactId, dealId: $('Prepare task + alert').first().json.dealId }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "14",
+      "name": "Dead-letter + error alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        520
+      ],
+      "parameters": {
+        "jsCode": "// n8n Code node \"Dead-letter + error alert\": runs from the error output of any HubSpot HTTP node.\nconst state = $getWorkflowStaticData('global');\nstate.dlq = state.dlq || [];\nconst ctx = $('Validate, score & route').first().json;\nconst err = $input.first().json.error || $input.first().json;\nconst item = { id: `dlq_${Date.now()}`, at: new Date().toISOString(), step: $input.first().json.step || 'hubspot', error: typeof err === 'string' ? err : (err.message || JSON.stringify(err)).slice(0, 500), payload: ctx.raw };\nstate.dlq.push(item);\nif (ctx.lead && ctx.lead.submissionId && state.seen) delete state.seen[ctx.lead.submissionId];\nreturn [{ json: { dlqId: item.id, slack: { text: `:rotating_light: Lead automation failed for ${ctx.lead ? ctx.lead.email : 'unknown'}: ${item.error}. Saved to dead-letter queue as ${item.id}.` } } }];\n"
+      }
+    },
+    {
+      "id": "15",
+      "name": "Slack error alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        520
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.slack) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "16",
+      "name": "Respond dead-lettered",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        520
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, dlqId: $('Dead-letter + error alert').first().json.dlqId }) }}",
+        "options": {
+          "responseCode": 202
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Lead webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate, score & route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate, score & route": {
+      "main": [
+        [
+          {
+            "node": "Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid?": {
+      "main": [
+        [
+          {
+            "node": "Search contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search contact": {
+      "main": [
+        [
+          {
+            "node": "Prepare contact upsert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Dead-letter + error alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare contact upsert": {
+      "main": [
+        [
+          {
+            "node": "Upsert contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert contact": {
+      "main": [
+        [
+          {
+            "node": "Prepare deal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Dead-letter + error alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare deal": {
+      "main": [
+        [
+          {
+            "node": "Create deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create deal": {
+      "main": [
+        [
+          {
+            "node": "Prepare task + alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Dead-letter + error alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare task + alert": {
+      "main": [
+        [
+          {
+            "node": "Create task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create task": {
+      "main": [
+        [
+          {
+            "node": "Slack alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Dead-letter + error alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack alert": {
+      "main": [
+        [
+          {
+            "node": "Respond processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dead-letter + error alert": {
+      "main": [
+        [
+          {
+            "node": "Slack error alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack error alert": {
+      "main": [
+        [
+          {
+            "node": "Respond dead-lettered",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

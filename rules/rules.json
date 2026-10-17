@@ -1,0 +1,28 @@
+{
+  "_note": "Demo rules. Owner ids are placeholders; replace with real HubSpot owner ids (GET /crm/v3/owners).",
+  "freeEmailDomains": ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "walla.co.il", "aol.com", "proton.me"],
+  "scoring": [
+    { "id": "budget_10k", "points": 30, "when": { "field": "budget", "gte": 10000 } },
+    { "id": "budget_3k", "points": 15, "when": { "field": "budget", "gte": 3000, "lt": 10000 } },
+    { "id": "business_email", "points": 15, "when": { "field": "businessEmail", "equals": true } },
+    { "id": "decision_maker", "points": 15, "when": { "field": "jobTitle", "matches": "\\b(founder|owner|ceo|cto|coo|head|director|vp)\\b" } },
+    { "id": "has_phone", "points": 5, "when": { "field": "phone", "present": true } },
+    { "id": "detailed_message", "points": 5, "when": { "field": "message", "minLength": 60 } },
+    { "id": "referral", "points": 10, "when": { "field": "source", "matches": "^(referral|partner)$" } },
+    { "id": "urgent_timeline", "points": 10, "when": { "field": "timeline", "matches": "^(asap|this_month)$" } }
+  ],
+  "tiers": [
+    { "tier": "hot", "minScore": 60, "taskDueHours": 1, "taskPriority": "HIGH" },
+    { "tier": "warm", "minScore": 30, "taskDueHours": 24, "taskPriority": "MEDIUM" },
+    { "tier": "cold", "minScore": 0, "taskDueHours": 72, "taskPriority": "LOW" }
+  ],
+  "routing": [
+    { "id": "enterprise", "when": { "field": "budget", "gte": 10000 }, "ownerId": "1001", "ownerName": "Senior AE (demo)" },
+    { "id": "israel", "when": { "field": "country", "matches": "^IL$" }, "ownerId": "1002", "ownerName": "IL rep (demo)" }
+  ],
+  "roundRobin": [
+    { "ownerId": "2001", "ownerName": "SDR A (demo)" },
+    { "ownerId": "2002", "ownerName": "SDR B (demo)" }
+  ],
+  "deal": { "pipeline": "default", "dealstage": "appointmentscheduled" }
+}
